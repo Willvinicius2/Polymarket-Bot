@@ -1,202 +1,127 @@
-# Polymarket BTC 15m Assistant
+# Polymarket Bot
 
-Um assistente de trading em tempo real no terminal para os mercados de 15 minutos do Polymarket "Bitcoin Up or Down".
+Python-first trading bot for Polymarket crypto markets.
 
-Ele combina:
-- selecao de mercado no Polymarket + precos UP/DOWN + liquidez
-- feed ao vivo do Chainlink BTC/USD via WebSocket do proprio Polymarket
-- fallback para Chainlink on-chain na Polygon via HTTP/WSS RPC
-- preco spot da Binance como referencia
-- snapshot de analise tecnica de curto prazo (Heiken Ashi, RSI, MACD, VWAP, delta de 1/3 min)
-- previsao ao vivo simples de LONG/SHORT (%) baseada no score atual de analise tecnica do assistente
+This repository now focuses on:
 
-## Requisitos
+- native Binance trade stream monitoring
+- Polymarket RTDS Binance feed monitoring
+- Polymarket RTDS Chainlink feed monitoring
+- automatic discovery of active crypto `Up or Down` series in minute-based windows
+- autonomous paper execution driven by lead/lag signals
+- a rich live dashboard that is easy to read while the bot is running
 
-- Node.js 18+ ([download](https://nodejs.org/en))
-- npm (ja vem com o Node)
+The old JavaScript implementation is still in [`src/`](./src) as a reference, but the new primary runtime lives in `polybot/`.
 
-## Como rodar no terminal
+## Current strategy focus
 
-### 1) Clone o repositorio
+The first version is built around a specific hypothesis:
 
-```bash
-git clone https://github.com/FrondEnt/PolymarketBTC15mAssistant.git
-```
+- native Binance can lead Polymarket's mirrored Chainlink stream in the final part of short recurring markets
+- when that lead is large enough, and the market is still priced off a lagging state, `Up` or `Down` shares can become mispriced
 
-Alternativa (sem git):
+So the bot measures:
 
-- clique no botao verde `<> Code` no GitHub
-- escolha `Download ZIP`
-- extraia o ZIP
-- abra um terminal dentro da pasta extraida do projeto
+- native Binance vs Polymarket RTDS Binance
+- native Binance vs Polymarket RTDS Chainlink
+- current market buy price vs our modeled directional confidence
 
-### 2) Instale as dependencias
+It also keeps a paper-trading loop running so we can validate the strategy before enabling live trading.
 
-```bash
-npm install
-```
+## Asset coverage
 
-### 3) (Opcional) Defina variaveis de ambiente
+The bot is designed to scan any supported crypto series that Polymarket currently exposes in recurring minute windows.
 
-Voce pode rodar sem configuracao extra, porque ja existem valores padrao. Ainda assim, para um fallback mais estavel do Chainlink, e recomendado definir pelo menos um RPC da Polygon.
+Right now the official RTDS crypto symbols documented by Polymarket are:
 
-#### Windows PowerShell (sessao atual do terminal)
+- BTC
+- ETH
+- SOL
+- XRP
 
-```powershell
-$env:POLYGON_RPC_URL = "https://polygon-rpc.com"
-$env:POLYGON_RPC_URLS = "https://polygon-rpc.com,https://rpc.ankr.com/polygon"
-$env:POLYGON_WSS_URLS = "wss://polygon-bor-rpc.publicnode.com"
-```
+Series discovery is automatic for minute-based `Up or Down` series. If Polymarket adds a new supported minute series, the bot should pick it up on the next discovery cycle.
 
-Configuracoes opcionais do Polymarket:
+## Interface
 
-```powershell
-$env:POLYMARKET_AUTO_SELECT_LATEST = "true"
-# $env:POLYMARKET_SLUG = "btc-updown-15m-..."   # fixa um mercado especifico
-```
+The default interface is a full-screen rich dashboard with:
 
-#### Windows CMD (sessao atual do terminal)
+- feed health per asset
+- active markets
+- top signals
+- autonomous paper positions and PnL
 
-```cmd
-set POLYGON_RPC_URL=https://polygon-rpc.com
-set POLYGON_RPC_URLS=https://polygon-rpc.com,https://rpc.ankr.com/polygon
-set POLYGON_WSS_URLS=wss://polygon-bor-rpc.publicnode.com
-```
+The bot also writes a machine-readable snapshot to `state/latest_snapshot.json`, so we can add a web UI later without changing the core engine.
 
-Configuracoes opcionais do Polymarket:
+## Requirements
 
-```cmd
-set POLYMARKET_AUTO_SELECT_LATEST=true
-REM set POLYMARKET_SLUG=btc-updown-15m-...
-```
+- Python 3.12+
 
-Observacoes:
-
-- essas variaveis valem apenas para a janela atual do terminal
-- se quiser variaveis permanentes, configure nas variaveis de ambiente do Windows ou use o carregador de `.env` que preferir
-
-## Configuracao
-
-Este projeto le configuracoes a partir de variaveis de ambiente.
-
-Voce pode defini-las no shell ou criar um arquivo `.env` e carrega-lo com o metodo que preferir.
-
-### Polymarket
-
-- `POLYMARKET_AUTO_SELECT_LATEST` (padrao: `true`)
-  - quando estiver como `true`, escolhe automaticamente o mercado de 15 minutos mais recente
-- `POLYMARKET_SERIES_ID` (padrao: `10192`)
-- `POLYMARKET_SERIES_SLUG` (padrao: `btc-up-or-down-15m`)
-- `POLYMARKET_SLUG` (opcional)
-  - se for definido, o assistente vai mirar em um slug de mercado especifico
-- `POLYMARKET_LIVE_WS_URL` (padrao: `wss://ws-live-data.polymarket.com`)
-
-### Chainlink na Polygon (fallback)
-
-- `CHAINLINK_BTC_USD_AGGREGATOR`
-  - padrao: `0xc907E116054Ad103354f2D350FD2514433D57F6f`
-
-HTTP RPC:
-
-- `POLYGON_RPC_URL` (padrao: `https://polygon-rpc.com`)
-- `POLYGON_RPC_URLS` (opcional, separado por virgulas)
-  - exemplo: `https://polygon-rpc.com,https://rpc.ankr.com/polygon`
-
-WSS RPC (opcional, mas recomendado para fallback mais em tempo real):
-
-- `POLYGON_WSS_URL` (opcional)
-- `POLYGON_WSS_URLS` (opcional, separado por virgulas)
-
-### Suporte a proxy
-
-O bot suporta proxies HTTP(S) tanto para requisicoes HTTP (`fetch`) quanto para conexoes WebSocket.
-
-Variaveis suportadas (padrao de mercado):
-
-- `HTTPS_PROXY` / `https_proxy`
-- `HTTP_PROXY` / `http_proxy`
-- `ALL_PROXY` / `all_proxy`
-
-Exemplos:
-
-PowerShell:
-
-```powershell
-$env:HTTPS_PROXY = "http://127.0.0.1:8080"
-# ou
-$env:ALL_PROXY = "socks5://127.0.0.1:1080"
-```
-
-CMD:
-
-```cmd
-set HTTPS_PROXY=http://127.0.0.1:8080
-REM ou
-set ALL_PROXY=socks5://127.0.0.1:1080
-```
-
-#### Proxy com usuario + senha
-
-1. Pegue o host e a porta do proxy (exemplo: `1.2.3.4:8080`).
-2. Adicione login e senha na URL.
-
-- proxy HTTP/HTTPS:
-  - `http://USUARIO:SENHA@HOST:PORTA`
-- proxy SOCKS5:
-  - `socks5://USUARIO:SENHA@HOST:PORTA`
-
-3. Defina no terminal e rode o bot.
-
-PowerShell:
-
-```powershell
-$env:HTTPS_PROXY = "http://USUARIO:SENHA@HOST:PORTA"
-npm start
-```
-
-CMD:
-
-```cmd
-set HTTPS_PROXY=http://USUARIO:SENHA@HOST:PORTA
-npm start
-```
-
-Importante: se sua senha tiver caracteres especiais como `@` ou `:`, faca URL encode.
-
-Exemplo:
-
-- senha: `p@ss:word`
-- codificada: `p%40ss%3Aword`
-- URL do proxy: `http://user:p%40ss%3Aword@1.2.3.4:8080`
-
-## Execucao
+## Install
 
 ```bash
-npm start
+python -m venv .venv
+. .venv/bin/activate
+pip install -e .
 ```
 
-### Parar
+Windows PowerShell:
 
-Pressione `Ctrl + C` no terminal.
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -e .
+```
 
-### Atualizar para a versao mais recente
+## Run
+
+Live dashboard:
 
 ```bash
-git pull
-npm install
-npm start
+python -m polybot.app
 ```
 
-## Observacoes / Solucao de problemas
+Headless mode:
 
-- se nao aparecerem atualizacoes do Chainlink:
-  - o WebSocket do Polymarket pode estar temporariamente indisponivel; nesse caso o bot faz fallback para o preco on-chain do Chainlink via RPC da Polygon
-  - garanta que pelo menos um RPC valido da Polygon esteja configurado
-- se o terminal parecer estar "spamando" linhas:
-  - o renderizador usa `readline.cursorTo` + `clearScreenDown` para manter a tela estavel, mas alguns terminais podem se comportar de forma diferente
+```bash
+python -m polybot.app --no-ui
+```
 
-## Seguranca
+One refresh cycle only:
 
-Isto nao e conselho financeiro. Use por sua conta e risco.
+```bash
+python -m polybot.app --once --no-ui
+```
 
-criado por @krajekis
+## Environment
+
+Copy `.env.example` to `.env` and adjust values if needed.
+
+Main knobs:
+
+- `POLYBOT_MODE=paper`
+- `POLYBOT_ORDER_AMOUNT_USDC`
+- `POLYBOT_MIN_EDGE_CENTS`
+- `POLYBOT_MIN_LEAD_GAP_BPS`
+- `POLYBOT_MARKET_REFRESH_SECONDS`
+
+## Live trading credentials
+
+Paper mode works without private credentials.
+
+For live Polymarket execution, send these and I will wire the live order path next:
+
+- `POLYMARKET_PRIVATE_KEY`
+- `POLYMARKET_API_KEY`
+- `POLYMARKET_API_SECRET`
+- `POLYMARKET_API_PASSPHRASE`
+- `POLYMARKET_FUNDER_ADDRESS`
+
+Optional but useful later:
+
+- a dedicated Chainlink / sponsored crypto price access path if we expand beyond the public RTDS-supported symbols
+
+## Notes
+
+- This is a high-risk trading system, not a guaranteed-profit system.
+- The current default is aggressive paper execution, not live execution.
+- The research notes that shaped this version are in [`docs/research-notes.md`](./docs/research-notes.md).
