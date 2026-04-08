@@ -11,7 +11,7 @@ export function sleep(ms) {
 
 export function formatNumber(x, digits = 0) {
   if (x === null || x === undefined || Number.isNaN(x)) return "-";
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("pt-BR", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits
   }).format(x);

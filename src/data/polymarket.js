@@ -11,7 +11,7 @@ export async function fetchMarketBySlug(slug) {
 
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Gamma markets error: ${res.status} ${await res.text()}`);
+    throw new Error(`Erro ao buscar mercados na Gamma: ${res.status} ${await res.text()}`);
   }
 
   const data = await res.json();
@@ -31,7 +31,7 @@ export async function fetchMarketsBySeriesSlug({ seriesSlug, limit = 50 }) {
 
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Gamma markets(series) error: ${res.status} ${await res.text()}`);
+    throw new Error(`Erro ao buscar mercados da serie na Gamma: ${res.status} ${await res.text()}`);
   }
 
   const data = await res.json();
@@ -47,7 +47,7 @@ export async function fetchLiveEventsBySeriesId({ seriesId, limit = 20 }) {
 
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Gamma events(series_id) error: ${res.status} ${await res.text()}`);
+    throw new Error(`Erro ao buscar eventos da serie na Gamma: ${res.status} ${await res.text()}`);
   }
 
   const data = await res.json();
@@ -75,7 +75,7 @@ export async function fetchActiveMarkets({ limit = 200, offset = 0 } = {}) {
 
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Gamma markets(active) error: ${res.status} ${await res.text()}`);
+    throw new Error(`Erro ao buscar mercados ativos na Gamma: ${res.status} ${await res.text()}`);
   }
   const data = await res.json();
   return Array.isArray(data) ? data : [];
@@ -148,7 +148,7 @@ export async function fetchClobPrice({ tokenId, side }) {
 
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`CLOB price error: ${res.status} ${await res.text()}`);
+    throw new Error(`Erro ao buscar preco no CLOB: ${res.status} ${await res.text()}`);
   }
   const data = await res.json();
   return toNumber(data.price);
@@ -160,7 +160,7 @@ export async function fetchOrderBook({ tokenId }) {
 
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`CLOB book error: ${res.status} ${await res.text()}`);
+    throw new Error(`Erro ao buscar livro de ofertas no CLOB: ${res.status} ${await res.text()}`);
   }
   return await res.json();
 }

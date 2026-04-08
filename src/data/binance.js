@@ -13,7 +13,7 @@ export async function fetchKlines({ interval, limit }) {
 
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Binance klines error: ${res.status} ${await res.text()}`);
+    throw new Error(`Erro ao buscar candles na Binance: ${res.status} ${await res.text()}`);
   }
   const data = await res.json();
 
@@ -33,7 +33,7 @@ export async function fetchLastPrice() {
   url.searchParams.set("symbol", CONFIG.symbol);
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Binance last price error: ${res.status} ${await res.text()}`);
+    throw new Error(`Erro ao buscar o ultimo preco na Binance: ${res.status} ${await res.text()}`);
   }
   const data = await res.json();
   return toNumber(data.price);

@@ -63,7 +63,7 @@ function screenWidth() {
   return Number.isFinite(w) && w >= 40 ? w : 80;
 }
 
-function sepLine(ch = "─") {
+function sepLine(ch = "-") {
   const w = screenWidth();
   return `${ANSI.white}${ch.repeat(w)}${ANSI.reset}`;
 }
@@ -119,10 +119,10 @@ function colorPriceLine({ label, price, prevPrice, decimals = 0, prefix = "" }) 
   if (prev !== null && Number.isFinite(prev) && Number.isFinite(p) && p !== prev) {
     if (p > prev) {
       color = ANSI.green;
-      arrow = " ↑";
+      arrow = " ^";
     } else {
       color = ANSI.red;
-      arrow = " ↓";
+      arrow = " v";
     }
   }
 
@@ -190,12 +190,12 @@ function getBtcSession(now = new Date()) {
   const inEurope = h >= 7 && h < 16;
   const inUs = h >= 13 && h < 22;
 
-  if (inEurope && inUs) return "Europe/US overlap";
-  if (inAsia && inEurope) return "Asia/Europe overlap";
+  if (inEurope && inUs) return "Sobreposicao Europa/EUA";
+  if (inAsia && inEurope) return "Sobreposicao Asia/Europa";
   if (inAsia) return "Asia";
-  if (inEurope) return "Europe";
-  if (inUs) return "US";
-  return "Off-hours";
+  if (inEurope) return "Europa";
+  if (inUs) return "EUA";
+  return "Fora do horario principal";
 }
 
 function parsePriceToBeat(market) {
@@ -514,13 +514,13 @@ async function main() {
 
       const rec = decide({ remainingMinutes: timeLeftMin, edgeUp: edge.edgeUp, edgeDown: edge.edgeDown, modelUp: timeAware.adjustedUp, modelDown: timeAware.adjustedDown });
 
-      const vwapSlopeLabel = vwapSlope === null ? "-" : vwapSlope > 0 ? "UP" : vwapSlope < 0 ? "DOWN" : "FLAT";
+      const vwapSlopeLabel = vwapSlope === null ? "-" : vwapSlope > 0 ? "SUBINDO" : vwapSlope < 0 ? "CAINDO" : "LATERAL";
 
       const macdLabel = macd === null
         ? "-"
         : macd.hist < 0
-          ? (macd.histDelta !== null && macd.histDelta < 0 ? "bearish (expanding)" : "bearish")
-          : (macd.histDelta !== null && macd.histDelta > 0 ? "bullish (expanding)" : "bullish");
+          ? (macd.histDelta !== null && macd.histDelta < 0 ? "baixista (expandindo)" : "baixista")
+          : (macd.histDelta !== null && macd.histDelta > 0 ? "altista (expandindo)" : "altista");
 
       const lastCandle = klines1m.length ? klines1m[klines1m.length - 1] : null;
       const lastClose = lastCandle?.close ?? null;
@@ -540,16 +540,19 @@ async function main() {
         ? (pLong > pShort ? "LONG" : pShort > pLong ? "SHORT" : "NEUTRAL")
         : "NEUTRAL";
       const predictValue = `${ANSI.green}LONG${ANSI.reset} ${ANSI.green}${formatProbPct(pLong, 0)}${ANSI.reset} / ${ANSI.red}SHORT${ANSI.reset} ${ANSI.red}${formatProbPct(pShort, 0)}${ANSI.reset}`;
-      const predictLine = `Predict: ${predictValue}`;
+      const marketUpStr = `${marketUp ?? "-"}${marketUp === null || marketUp === undefined ? "" : "c"}`;
+      const marketDownStr = `${marketDown ?? "-"}${marketDown === null || marketDown === undefined ? "" : "c"}`;
+      const polyHeaderValue = `${ANSI.green}^ UP${ANSI.reset} ${marketUpStr}  |  ${ANSI.red}v DOWN${ANSI.reset} ${marketDownStr}`;
 
-      const marketUpStr = `${marketUp ?? "-"}${marketUp === null || marketUp === undefined ? "" : "¢"}`;
-      const marketDownStr = `${marketDown ?? "-"}${marketDown === null || marketDown === undefined ? "" : "¢"}`;
-      const polyHeaderValue = `${ANSI.green}↑ UP${ANSI.reset} ${marketUpStr}  |  ${ANSI.red}↓ DOWN${ANSI.reset} ${marketDownStr}`;
-
-      const heikenValue = `${consec.color ?? "-"} x${consec.count}`;
+      const heikenColorLabel = (consec.color ?? "") === "green"
+        ? "verde"
+        : (consec.color ?? "") === "red"
+          ? "vermelho"
+          : (consec.color ?? "-");
+      const heikenValue = `${heikenColorLabel} x${consec.count}`;
       const heikenLine = formatNarrativeValue("Heiken Ashi", heikenValue, haNarrative);
 
-      const rsiArrow = rsiSlope !== null && rsiSlope < 0 ? "↓" : rsiSlope !== null && rsiSlope > 0 ? "↑" : "-";
+      const rsiArrow = rsiSlope !== null && rsiSlope < 0 ? "v" : rsiSlope !== null && rsiSlope > 0 ? "^" : "-";
       const rsiValue = `${formatNumber(rsiNow, 1)} ${rsiArrow}`;
       const rsiLine = formatNarrativeValue("RSI", rsiValue, rsiNarrative);
 
@@ -558,16 +561,12 @@ async function main() {
       const delta1Narrative = narrativeFromSign(delta1m);
       const delta3Narrative = narrativeFromSign(delta3m);
       const deltaValue = `${colorByNarrative(formatSignedDelta(delta1m, lastClose), delta1Narrative)} | ${colorByNarrative(formatSignedDelta(delta3m, lastClose), delta3Narrative)}`;
-      const deltaLine = `Delta 1/3Min: ${deltaValue}`;
+      const deltaLine = `Delta 1/3 min: ${deltaValue}`;
 
-      const vwapValue = `${formatNumber(vwapNow, 0)} (${formatPct(vwapDist, 2)}) | slope: ${vwapSlopeLabel}`;
+      const vwapValue = `${formatNumber(vwapNow, 0)} (${formatPct(vwapDist, 2)}) | inclinacao: ${vwapSlopeLabel}`;
       const vwapLine = formatNarrativeValue("VWAP", vwapValue, vwapNarrative);
 
-      const signal = rec.action === "ENTER" ? (rec.side === "UP" ? "BUY UP" : "BUY DOWN") : "NO TRADE";
-
-      const actionLine = rec.action === "ENTER"
-        ? `${rec.action} NOW (${rec.phase} ENTRY)`
-        : `NO TRADE (${rec.phase})`;
+      const signal = rec.action === "ENTER" ? (rec.side === "UP" ? "COMPRAR UP" : "COMPRAR DOWN") : "SEM OPERACAO";
 
       const spreadUp = poly.ok ? poly.orderbook.up.spread : null;
       const spreadDown = poly.ok ? poly.orderbook.down.spread : null;
@@ -596,7 +595,7 @@ async function main() {
 
       const priceToBeat = priceToBeatState.slug === marketSlug ? priceToBeatState.value : null;
       const currentPriceBaseLine = colorPriceLine({
-        label: "CURRENT PRICE",
+        label: "PRECO ATUAL",
         price: currentPrice,
         prevPrice: prevCurrentPrice,
         decimals: 2,
@@ -617,7 +616,7 @@ async function main() {
         ? `${ANSI.gray}-${ANSI.reset}`
         : `${ptbDeltaColor}${ptbDelta > 0 ? "+" : ptbDelta < 0 ? "-" : ""}$${Math.abs(ptbDelta).toFixed(2)}${ANSI.reset}`;
       const currentPriceValue = currentPriceBaseLine.split(": ")[1] ?? currentPriceBaseLine;
-      const currentPriceLine = kv("CURRENT PRICE:", `${currentPriceValue} (${ptbDeltaText})`);
+      const currentPriceLine = kv("Preco atual:", `${currentPriceValue} (${ptbDeltaText})`);
 
       if (poly.ok && poly.market && priceToBeatState.value === null) {
         const slug = safeFileSlug(poly.market.slug || poly.market.id || "market");
@@ -646,7 +645,7 @@ async function main() {
       const binanceSpotKvLine = kv("BTC (Binance):", binanceSpotValue);
 
       const titleLine = poly.ok ? `${poly.market?.question ?? "-"}` : "-";
-      const marketLine = kv("Market:", poly.ok ? (poly.market?.slug ?? "-") : "-");
+      const marketLine = kv("Mercado:", poly.ok ? (poly.market?.slug ?? "-") : "-");
 
       const timeColor = timeLeftMin >= 10 && timeLeftMin <= 15
         ? ANSI.green
@@ -655,8 +654,6 @@ async function main() {
           : timeLeftMin >= 0 && timeLeftMin < 5
             ? ANSI.red
             : ANSI.reset;
-      const timeLeftLine = `⏱ Time left: ${timeColor}${fmtTimeLeft(timeLeftMin)}${ANSI.reset}`;
-
       const polyTimeLeftColor = settlementLeftMin !== null
         ? (settlementLeftMin >= 10 && settlementLeftMin <= 15
           ? ANSI.green
@@ -670,11 +667,11 @@ async function main() {
       const lines = [
         titleLine,
         marketLine,
-        kv("Time left:", `${timeColor}${fmtTimeLeft(timeLeftMin)}${ANSI.reset}`),
+        kv("Tempo rest.:", `${timeColor}${fmtTimeLeft(timeLeftMin)}${ANSI.reset}`),
         "",
         sepLine(),
         "",
-        kv("TA Predict:", predictValue),
+        kv("Prev. TA:", predictValue),
         kv("Heiken Ashi:", heikenLine.split(": ")[1] ?? heikenLine),
         kv("RSI:", rsiLine.split(": ")[1] ?? rsiLine),
         kv("MACD:", macdLine.split(": ")[1] ?? macdLine),
@@ -684,9 +681,9 @@ async function main() {
         sepLine(),
         "",
         kv("POLYMARKET:", polyHeaderValue),
-        liquidity !== null ? kv("Liquidity:", formatNumber(liquidity, 0)) : null,
-        settlementLeftMin !== null ? kv("Time left:", `${polyTimeLeftColor}${fmtTimeLeft(settlementLeftMin)}${ANSI.reset}`) : null,
-        priceToBeat !== null ? kv("PRICE TO BEAT: ", `$${formatNumber(priceToBeat, 0)}`) : kv("PRICE TO BEAT: ", `${ANSI.gray}-${ANSI.reset}`),
+        liquidity !== null ? kv("Liquidez:", formatNumber(liquidity, 0)) : null,
+        settlementLeftMin !== null ? kv("Tempo rest.:", `${polyTimeLeftColor}${fmtTimeLeft(settlementLeftMin)}${ANSI.reset}`) : null,
+        priceToBeat !== null ? kv("Preco-alvo:", `$${formatNumber(priceToBeat, 0)}`) : kv("Preco-alvo:", `${ANSI.gray}-${ANSI.reset}`),
         currentPriceLine,
         "",
         sepLine(),
@@ -695,10 +692,10 @@ async function main() {
         "",
         sepLine(),
         "",
-        kv("ET | Session:", `${ANSI.white}${fmtEtTime(new Date())}${ANSI.reset} | ${ANSI.white}${getBtcSession(new Date())}${ANSI.reset}`),
+        kv("ET | Sessao:", `${ANSI.white}${fmtEtTime(new Date())}${ANSI.reset} | ${ANSI.white}${getBtcSession(new Date())}${ANSI.reset}`),
         "",
         sepLine(),
-        centerText(`${ANSI.dim}${ANSI.gray}created by @krajekis${ANSI.reset}`, screenWidth())
+        centerText(`${ANSI.dim}${ANSI.gray}criado por @krajekis${ANSI.reset}`, screenWidth())
       ].filter((x) => x !== null);
 
       renderScreen(lines.join("\n") + "\n");
@@ -718,12 +715,12 @@ async function main() {
         marketDown,
         edge.edgeUp,
         edge.edgeDown,
-        rec.action === "ENTER" ? `${rec.side}:${rec.phase}:${rec.strength}` : "NO_TRADE"
+        rec.action === "ENTER" ? `${rec.side}:${rec.phase}:${rec.strength}` : "SEM_OPERACAO"
       ]);
     } catch (err) {
-      console.log("────────────────────────────");
-      console.log(`Error: ${err?.message ?? String(err)}`);
-      console.log("────────────────────────────");
+      console.log("----------------------------");
+      console.log(`Erro: ${err?.message ?? String(err)}`);
+      console.log("----------------------------");
     }
 
     await sleep(CONFIG.pollIntervalMs);
