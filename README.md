@@ -55,8 +55,11 @@ The bot also writes a machine-readable snapshot to `state/latest_snapshot.json`,
 ## Requirements
 
 - Python 3.12+
+- Node.js (for the JavaScript version in `src/`)
 
 ## Install
+
+### Python version (recommended)
 
 ```bash
 python -m venv .venv
@@ -72,7 +75,15 @@ python -m venv .venv
 pip install -e .
 ```
 
+### JavaScript version (legacy)
+
+```bash
+npm install
+```
+
 ## Run
+
+### Python version
 
 Live dashboard:
 
@@ -92,23 +103,44 @@ One refresh cycle only:
 python -m polybot.app --once --no-ui
 ```
 
+### JavaScript version
+
+```bash
+node src/index.js
+```
+
+**Interactive controls:**
+- Press `1` to switch to **SIMULACAO** mode (paper trading)
+- Press `2` to switch to **REAL** mode (live trading - use with caution!)
+- Press `Ctrl+C` to exit
+
 ## Environment
 
 Copy `.env.example` to `.env` and adjust values if needed.
 
+### Python version
+
 Main knobs:
 
-- `POLYBOT_MODE=paper`
+- `POLYBOT_MODE=paper` (use `live` for real trading)
 - `POLYBOT_ORDER_AMOUNT_USDC`
 - `POLYBOT_MIN_EDGE_CENTS`
 - `POLYBOT_MIN_LEAD_GAP_BPS`
 - `POLYBOT_MARKET_REFRESH_SECONDS`
 
+### JavaScript version
+
+Main knobs:
+
+- `EXECUTION_MODE=simulacao` (use `real` for real trading)
+- `POLYMARKET_SERIES_ID`
+- `POLYMARKET_AUTO_SELECT_LATEST`
+
 ## Live trading credentials
 
-Paper mode works without private credentials.
+Paper/simulation mode works without private credentials.
 
-For live Polymarket execution, send these and I will wire the live order path next:
+For live Polymarket execution, configure these in your `.env` file:
 
 - `POLYMARKET_PRIVATE_KEY`
 - `POLYMARKET_API_KEY`

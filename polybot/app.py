@@ -12,8 +12,8 @@ from rich.live import Live
 from polybot.clients.binance import BinanceTradeStream
 from polybot.clients.polymarket import DEFAULT_ASSET_MAP, GammaClient, PolymarketRTDSClient
 from polybot.config import AppConfig, MarketSeriesConfig, load_config
-from polybot.execution import PaperExecutor
-from polybot.models import FeedTick, MarketRuntime, Opportunity, SymbolRuntime
+from polybot.execution import LiveExecutor, PaperExecutor
+from polybot.models import ExecutionMode, FeedTick, MarketRuntime, Opportunity, SymbolRuntime
 from polybot.strategies.latency_gap import build_opportunity
 from polybot.ui import build_dashboard
 from polybot.utils import now_ms, write_json
@@ -38,7 +38,8 @@ class TradingBot:
             series_configs={cfg.key: cfg for cfg in config.markets},
             symbol_states={asset: SymbolRuntime(asset=asset) for asset in config.asset_universe},
         )
-        self.executor = PaperExecutor(config)
+        self.paper_executor = PaperExecutor(config)
+        self.live_executor = LiveExecutor(config) if config.mode == ExecutionMode.LIVE else None
         self.gamma = GammaClient(config.gamma_base_url, config.clob_base_url)
         self._running = True
 
@@ -56,8 +57,17 @@ class TradingBot:
             }
         )
 
+    @property
+    def executor(self) -> PaperExecutor | LiveExecutor:
+        """Return the active executor based on mode."""
+        if self.config.mode == ExecutionMode.LIVE and self.live_executor is not None:
+            return self.live_executor
+        return self.paper_executor
+
     async def close(self) -> None:
         await self.gamma.close()
+        if self.live_executor is not None:
+            await self.live_executor.close()
 
     def on_tick(self, asset: str, tick: FeedTick) -> None:
         symbol_state = self.state.symbol_states.setdefault(asset, SymbolRuntime(asset=asset))
@@ -181,7 +191,10 @@ class TradingBot:
         while self._running:
             opportunities = self.build_opportunities()
             current_time = now_ms()
-            self.executor.maybe_open_positions(opportunities, current_time)
+            if isinstance(self.executor, LiveExecutor):
+                await self.executor.maybe_open_positions(opportunities, current_time)
+            else:
+                self.executor.maybe_open_positions(opportunities, current_time)
             market_lookup = dict(self.state.market_cache_by_slug)
             for market in self.state.active_markets.values():
                 if market.market_slug:

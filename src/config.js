@@ -33,3 +33,15 @@ export const CONFIG = {
     btcUsdAggregator: process.env.CHAINLINK_BTC_USD_AGGREGATOR || "0xc907E116054Ad103354f2D350FD2514433D57F6f"
   }
 };
+
+let executionMode = process.env.EXECUTION_MODE === "real" ? "real" : "simulacao";
+
+export function getExecutionMode() {
+  return executionMode;
+}
+
+export function setExecutionMode(mode) {
+  if (mode === "real" || mode === "simulacao") {
+    executionMode = mode;
+  }
+}

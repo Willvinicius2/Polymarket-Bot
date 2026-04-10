@@ -1,4 +1,4 @@
-import { CONFIG } from "./config.js";
+import { CONFIG, setExecutionMode, getExecutionMode } from "./config.js";
 import { fetchKlines, fetchLastPrice } from "./data/binance.js";
 import { fetchChainlinkBtcUsd } from "./data/chainlink.js";
 import { startChainlinkPriceStream } from "./data/chainlinkWs.js";
@@ -419,8 +419,26 @@ async function main() {
     "recommendation"
   ];
 
+  // Setup keyboard input for mode switching
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.setEncoding("utf8");
+
+  process.stdin.on("data", (key) => {
+    if (key === "\u0003") { // Ctrl+C
+      process.exit(0);
+    } else if (key === "1") {
+      setExecutionMode("simulacao");
+      console.log(`\n${ANSI.yellow}Modo alterado para SIMULACAO${ANSI.reset}\n`);
+    } else if (key === "2") {
+      setExecutionMode("real");
+      console.log(`\n${ANSI.red}Modo alterado para REAL (atencao!){ANSI.reset}\n`);
+    }
+  });
+
   while (true) {
     const timing = getCandleWindowTiming(CONFIG.candleWindowMinutes);
+    const currentMode = getExecutionMode();
 
     const wsTick = binanceStream.getLast();
     const wsPrice = wsTick?.price ?? null;
@@ -664,12 +682,19 @@ async function main() {
               : ANSI.reset)
         : ANSI.reset;
 
+      const modeDisplay = currentMode === "real" 
+        ? `${ANSI.red}MODO: REAL (transacoes reais!){ANSI.reset}` 
+        : `${ANSI.yellow}MODO: SIMULACAO${ANSI.reset}`;
+
       const lines = [
         titleLine,
         marketLine,
         kv("Tempo rest.:", `${timeColor}${fmtTimeLeft(timeLeftMin)}${ANSI.reset}`),
         "",
         sepLine(),
+        "",
+        modeDisplay,
+        `${ANSI.dim}[1] Simulacao  |  [2] Conta Real${ANSI.reset}`,
         "",
         kv("Prev. TA:", predictValue),
         kv("Heiken Ashi:", heikenLine.split(": ")[1] ?? heikenLine),

@@ -36,8 +36,11 @@ def build_dashboard(
 ) -> Panel:
     header = Text()
     header.append("Polymarket Bot ", style="bold cyan")
-    header.append(f"[mode={mode_label}]", style="bold yellow")
-    header.append("  Native Binance x RTDS Binance x RTDS Chainlink", style="white")
+    mode_style = "bold green" if mode_label == "live" else "bold yellow"
+    header.append(f"[mode={mode_label}]", style=mode_style)
+    execution_label = "LIVE EXECUTION" if mode_label == "live" else "PAPER EXECUTION"
+    header.append(f"  {execution_label}", style="bold red" if mode_label == "live" else "white")
+    header.append("  |  Native Binance x RTDS Binance x RTDS Chainlink", style="white")
 
     feeds_table = Table(expand=True)
     feeds_table.add_column("Asset", style="bold")
@@ -129,6 +132,8 @@ def build_dashboard(
                 pnl_text,
             )
 
+    positions_title = "LIVE Execution" if mode_label == "live" else "Paper Execution"
+    positions_border = "red" if mode_label == "live" else "yellow"
     content = Group(
         header,
         "",
@@ -142,6 +147,6 @@ def build_dashboard(
             expand=True,
         ),
         "",
-        Panel(positions_table, title="Paper Execution", border_style="yellow"),
+        Panel(positions_table, title=positions_title, border_style=positions_border),
     )
     return Panel(content, border_style="bright_blue")
